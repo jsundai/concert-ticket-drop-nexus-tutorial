@@ -36,19 +36,27 @@ PIONEERS = [
     "Frances Allen", "Margaret Hamilton", "Barbara Liskov", "Radia Perlman", "Adele Goldberg",
     "Lynn Conway", "Anita Borg", "Karen Spärck Jones", "Hedy Lamarr", "Jeannette Wing",
     "Maria Klawe", "Shafi Goldwasser", "Latanya Sweeney", "Marian Croak", "Kimberly Bryant",
+    "Juliana Rotich",
     "Valerie Thomas", "Raye Montague", "Mary Golda Ross", "Alan Turing", "Clarence Ellis",
     "Mark Dean", "Jerry Lawson", "Raj Reddy", "Andrew Yao", "Edsger Dijkstra", "Donald Knuth",
     "Dennis Ritchie", "Tim Berners-Lee", "Vint Cerf", "Luis von Ahn", "Yukihiro Matsumoto",
+    "Roy Clay", "Jesse Russell", "John Henry Thompson", "An Wang", "Ajay Bhatt",
+    "Miguel de Icaza", "Hector Garcia-Molina", "Kwabena Boahen",
     # NASA's human computers
     "Katherine Johnson", "Dorothy Vaughan", "Mary Jackson", "Annie Easley", "Gladys West",
     # AI and robotics
     "Fei-Fei Li", "Timnit Gebru", "Joy Buolamwini", "Rediet Abebe", "Daphne Koller",
-    "Ayanna Howard", "Cynthia Breazeal", "Ruzena Bajcsy", "Manuela Veloso",
+    "Ayanna Howard", "Cynthia Breazeal", "Ruzena Bajcsy", "Manuela Veloso", "Lotfi Zadeh",
+    "Rana el Kaliouby", "Pardis Sabeti",
+    "Jaime Carbonell",
     # Math
-    "Hypatia", "Emmy Noether", "Sophie Germain", "Sofya Kovalevskaya", "Maryam Mirzakhani",
+    "Emmy Noether", "Sophie Germain", "Sofya Kovalevskaya", "Maryam Mirzakhani",
     "Karen Uhlenbeck", "Ingrid Daubechies", "Evelyn Boyd Granville", "Fern Hunt",
-    "Shakuntala Devi", "Srinivasa Ramanujan", "Al-Khwarizmi", "Benjamin Banneker",
+    "Shakuntala Devi", "Srinivasa Ramanujan", "Muhammad al-Khwarizmi", "Benjamin Banneker",
     "David Blackwell", "J. Ernest Wilkins Jr.", "Terence Tao", "Manjul Bhargava", "Claude Shannon",
+    "Elbert Frank Cox", "Omar Khayyam", "Hasan Ibn al-Haytham", "Avi Wigderson",
+    "Seki Takakazu", "Kiyosi Itô", "Shing-Tung Yau", "Manindra Agrawal", "Narendra Karmarkar",
+    "Prasanta Chandra Mahalanobis",
 ]
 BOTS = ["TicketBot9000", "ScalpMaster3000", "BuyAllTheSeats.exe", "ResellRanger", "NotABot_bot",
         "ScalperKing", "QueueJumper.exe", "TotallyHumanBot"]
