@@ -1,163 +1,113 @@
 # Drop Day: learn Temporal Nexus by selling concert tickets
 
-You know that moment when tickets go on sale, the site falls over, and half your friends get charged twice? This app
-recreates it on purpose.
-
-Drop Day sells tickets for a made-up band, Ziggy & The Durable Executions. A hundred and fifty fans hit the box office at
-the same second, some scalper bots sneak into the line, and the card processor fails on about 30% of attempts. Then you
-get to pull the plug on the payments system while people are mid-checkout and watch what happens.
-
-Spoiler: everyone who paid gets a seat, nobody who lost a seat keeps paying, and the duplicate-charge counter stays at
-zero. The rest of this page shows you how that works with [Temporal Nexus](https://docs.temporal.io/nexus).
+Drop Day is a ticket sale that goes wrong on purpose. Fans rush in, bots sneak into the line, and you get to crash the
+payment system mid-checkout to see how [Temporal Nexus](https://docs.temporal.io/nexus) keeps everyone's order straight.
 
 ![The Drop Day dashboard after a drop](docs/dashboard.png)
 
-## Get it running
+## Run it
 
-It takes about two minutes. You'll need the [Temporal CLI](https://docs.temporal.io/cli/setup-cli) (version 1.9.1 or
-later) and [uv](https://docs.astral.sh/uv/), which handles Python and the dependencies for you.
-
-Start a local Temporal server in one terminal and leave it running:
+You'll need the [Temporal CLI](https://docs.temporal.io/cli/setup-cli) (1.9.1 or later) and
+[uv](https://docs.astral.sh/uv/).
 
 ```bash
-./start-server.sh
+./start-server.sh                          # terminal 1: local Temporal server
+./setup.sh                                 # terminal 2: create the Namespaces and Nexus Endpoints
+uv run python -m drop_day.demo.dashboard   # terminal 2: the app
 ```
 
-In a second terminal, set up the Namespaces and Nexus Endpoints, then start the dashboard:
+Open http://localhost:8080 and press **Drop tickets**. Seats turn blue when a fan holds them and green once the fan
+has paid.
 
-```bash
-./setup.sh
-uv run python -m drop_day.demo.dashboard
+Run `./setup.sh` again whenever you restart the server, because it doesn't keep anything.
+
+This Drop Day app includes several ways of using Nexus, including:
+
+| Choice | Used for | Why |
+| --- | --- | --- |
+| **Caller Workflow** | `TicketPurchaseWorkflow`, one per fan | Several Operations in a row, plus a refund saga |
+| **Standalone Nexus Operation** | Venue manager's `open_drop`, support desk's `issue_credit` | One call from a script or UI backend, so no Workflow is needed |
+| **Activity-backed Operation** ([Nexus Standalone Activity](https://docs.temporal.io/nexus/standalone-activity)) | `screen_fan`, `charge`, `refund`, `issue_credit`, `open_drop` | One durable step each, with no Workflow behind it |
+| **Workflow-backed Operation** | `hold_seat`, `confirm_seat`, `release_seat` | A seat hold waits for a confirm or a timeout, so it needs a Workflow |
+
+## Break it
+
+Start a drop, then try one of these:
+
+1. Stop the Payments Worker while fans are paying, then start it again. The seats wait until
+   Payments is back and then sell, and the ledger still shows 0 duplicate charges.
+2. Slide the card failure rate to 80%. The drop slows down, but there are still 0 duplicate charges.
+3. Set **Hold** to 10 and stop Payments for 15 seconds. Unpaid seats free themselves, and those fans get refunded.
+4. Stop the Seats Worker for 10 seconds. Checkout stalls for about a minute, because the Nexus
+   [circuit breaker](https://docs.temporal.io/nexus/operations#circuit-breaking) pauses calls to Seats for 60 seconds.
+
+## Architecture
+
+The app has four teams, each with its own Namespace, and the box office calls the other three through Nexus Endpoints.
+
+```
+                        ┌─ bouncer-endpoint ──▶  bouncer   screen_fan ─────────────▶ Activity
+ boxoffice              │
+ TicketPurchaseWorkflow ├─ seats-endpoint ────▶  seats     hold_seat ──────────────▶ SeatHoldWorkflow (Update-with-Start)
+ (one per fan)          │                                  confirm_seat ───────────▶ Update on the hold
+                        │                                  release_seat ───────────▶ Signal to the hold
+                        │                                  open_drop ──────────────▶ Activity
+                        └─ payments-endpoint ─▶  payments  charge / refund / issue_credit ─▶ Activity
+
+ Venue manager, support desk ── Standalone Nexus Operations (no Workflow) ──▶ seats.open_drop, payments.issue_credit
 ```
 
-Open http://localhost:8080. The dashboard starts all the Workers for you, so that's everything.
+Here's why the demo survives what you threw at it:
 
-(The local server forgets everything when it stops, so run `./setup.sh` again after a restart.)
+| What happens | What handles it |
+| --- | --- |
+| The card processor fails | The `charge` Activity retries |
+| The card is charged but the response is lost | The retry reuses the same Activity ID, so the card processor doesn't charge again |
+| The Payments Worker dies mid-charge | Heartbeats stop, and the charge reruns once a Worker is back |
+| A bot shows up | `screen_fan` blocks it without retrying |
+| A hold runs out before the fan pays | `SeatHoldWorkflow`'s timer frees the seat, and the box office refunds the fan |
+| The Seats Worker is down | Calls time out, and the circuit breaker pauses them for 60 seconds |
 
-## Let me show you something
+## See it in the Web UI
 
-Press **Drop tickets** and keep your eye on the seat map. Open seats turn blue when a fan grabs one and green once
-they've paid. The bar across the top counts fans at every step, and the column on the left shows what each team is
-working on.
+Open http://localhost:8233 and switch Namespaces at the top left.
 
-Now comes the fun part. Start another drop, and while fans are paying, hit **Stop Worker** under Payments. You just
-killed the process that charges cards, exactly as if its server died. Payments goes red, the seats stay blue, and
-everybody's stuck.
+- `boxoffice` has one `TicketPurchaseWorkflow` per fan.
+- `seats` has one `SeatHoldWorkflow` per hold.
+- `payments` and `bouncer` only have Activities.
+- During Break it step 4, a stuck fan's Nexus Operation shows as Blocked because the circuit breaker is open.
 
-![Payments stopped in the middle of a drop](docs/dashboard-worker-down.png)
+To list the Standalone Nexus Operations, run `temporal nexus operation list --namespace boxoffice`.
 
-Hit **Start Worker**. Give it a few seconds, and the stalled charges run again on the new Worker. Now look at the ledger
-in the bottom left: duplicate charges, zero. That's with a card processor that fails on purpose, including the nasty
-case where it charges the card and then loses the response, which is how people usually end up paying twice.
+## Where the Temporal code is
 
-Want to try a harder one? Set **Hold** to 10 seconds, start a drop, stop Payments, and count to fifteen before you start it
-again. Watch the blue seats go back to open by themselves, because the holds ran out. When Payments comes back, those
-fans get charged, find out their seat's gone, and get their money back automatically. Nobody wrote a cleanup job for
-that.
+All of it is in [`drop_day/temporal/`](drop_day/temporal), and the other folders are only there to support the demo.
 
-A couple more things to click on before you go. **Credit $20** next to any fan sends them a goodwill credit straight
-from the dashboard. And if you open the Temporal Web UI at http://localhost:8233 and switch Namespaces at the top left,
-you'll see that each team only sees its own side of the story.
-
-## So what just happened?
-
-There are four teams in this app, and each one has its own Temporal Namespace, the way different teams at a real
-company would. The box office sells tickets, the bouncer keeps bots out, Seats knows which seats are taken, and
-Payments charges cards.
-
-Here's the important bit: the box office never touches the other teams' code. It calls them through **Nexus**. Each
-team publishes a short menu of things it can do, called Nexus Operations. Payments, for instance, offers `charge`,
-`refund`, and `issue_credit`. The box office orders off those menus through a **Nexus Endpoint**, which routes each call
-to the right team. The menus are the only thing the teams share, and they all fit in one file,
-`drop_day/temporal/contracts.py`.
-
-### Follow one fan through
-
-Every fan gets their own `TicketPurchaseWorkflow` in the box office. It asks the bouncer whether the fan is human, asks
-Seats to hold a seat, asks Payments to charge the card, and asks Seats to lock the seat in. If the seat's gone by the
-time the card clears, it asks Payments for a refund.
-
-Every one of those requests is a Nexus Operation. The cool part is that each team decides, on its own, what runs behind
-each one.
-
-### Most Operations are just one Activity
-
-Checking for a bot is one quick check, and charging a card is one call to the card processor. Neither needs a Workflow
-behind it, so each of those Operations runs a single Activity and finishes when the Activity does. Temporal calls this
-a [Nexus Standalone Activity](https://docs.temporal.io/nexus/standalone-activity).
-
-You still get the Temporal safety net. If the card processor errors out, the Activity retries. If the Payments Worker
-dies mid-charge, its heartbeats stop, Temporal notices about 3 seconds later, and the charge runs again as soon as a Worker
-is back.
-
-And the reason nobody pays twice fits in one line of `payments.py`. The card processor accepts an idempotency key, and
-the app passes it the Activity's ID. That ID stays the same across every retry, so a retry looks to the processor like
-the same request, and it doesn't charge again.
-
-### Holding a seat takes a Workflow
-
-A seat hold is different, because it has to wait. Either the fan finishes paying, or time runs out and the seat goes
-back on sale. Waiting is exactly what Workflows are good at, so Seats backs `hold_seat` with a `SeatHoldWorkflow`. The
-fan gets their seat number immediately, and the hold keeps ticking in the background with its own timer. When the box
-office is ready to lock the seat in, `confirm_seat` sends that hold an Update.
-
-That's why the holds expired on their own in the harder demo, even with the rest of the purchase stuck. The hold never
-depended on anyone else remembering to let go of the seat.
-
-### And some calls skip the Workflow completely
-
-Opening the drop is one call the venue manager makes before doors open. Giving a fan a $20 credit is one call from the
-support desk. A Workflow wouldn't add anything to either one, so the app makes them as **Standalone Nexus Operations**,
-where the Temporal Client calls the Operation directly. Both live in `drop_day/demo/engine.py`. The Web UI may not list
-them yet, but this command will:
-
-```bash
-temporal nexus operation list --namespace boxoffice
+```
+drop_day/
+  temporal/   Nexus contracts, Workflows, Activities, Nexus handlers, Workers
+  systems/    A pretend card processor and seat database, with no Temporal code
+  demo/       The dashboard and scripts
 ```
 
-## Where to look in the code
+| File | What it is |
+| --- | --- |
+| `contracts.py` | The Operations each team offers, and the best place to start |
+| `boxoffice.py` | `TicketPurchaseWorkflow`, which calls the other teams |
+| `bouncer.py` | Bot screening, backed by one Activity |
+| `payments.py` | Charge, refund, and credit, each backed by one Activity |
+| `seats.py` | Seat Operations, each backed a different way |
+| `seat_hold.py` | `SeatHoldWorkflow`, which holds a seat until it's confirmed or expires |
+| `seat_inventory.py` | The Activities the hold uses |
 
-Head straight for `drop_day/temporal/`, because every line of Temporal code lives there. The other two folders are
-props: `systems/` pretends to be the outside world (the flaky card processor and a seat database), and `demo/` is the
-dashboard plus a couple of scripts.
+## Without the dashboard
 
-Inside `drop_day/temporal/`, here's the order I'd read things in:
-
-- `contracts.py` has the menus, so start there.
-- `boxoffice.py` has the `TicketPurchaseWorkflow` that calls everyone else.
-- `payments.py` and `bouncer.py` have the Operations backed by a single Activity.
-- `seats.py` is worth slowing down for, because its Operations are backed four different ways: an Activity, a Workflow,
-  an Update, and a Signal.
-- `seat_hold.py` has the `SeatHoldWorkflow` and its timer.
-- `seat_inventory.py` has the small Activities the hold Workflow uses.
-
-## Prefer the terminal?
-
-You can skip the dashboard. Start each team's Worker in its own window:
+Start each Worker in its own terminal, then run a drop with a text view:
 
 ```bash
 uv run python -m drop_day.temporal.bouncer
 uv run python -m drop_day.temporal.seats
 uv run python -m drop_day.temporal.payments
 uv run python -m drop_day.temporal.boxoffice
+uv run python -m drop_day.demo.drop
 ```
-
-Then run a drop with a live text view:
-
-```bash
-uv run python -m drop_day.demo.drop --fans 200 --seats 150 --bots 15
-```
-
-To break things here, press Ctrl+C in a Worker's window and then start it again. The support desk works from the
-command line too:
-
-```bash
-uv run python -m drop_day.demo.support credit --drop drop-123456 --fan fan-0007 --amount 20
-```
-
-Each team keeps its data in SQLite files under `data/`. Delete that folder whenever you want a clean slate.
-
----
-
-The dashboard uses the Geist and Geist Mono fonts under the SIL Open Font License
-(see `drop_day/demo/static/fonts/Geist-OFL.txt`).
