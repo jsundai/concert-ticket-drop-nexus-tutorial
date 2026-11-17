@@ -1,7 +1,7 @@
 # Drop Day: learn Temporal Nexus by selling concert tickets
 
 Drop Day is a ticket sale that goes wrong on purpose. Fans rush in, bots sneak into the line, and you get to crash the
-payment system mid-checkout to see how [Temporal Nexus](https://docs.temporal.io/nexus) keeps everyone's order straight.
+payment system mid-checkout to see how Temporal using [Nexus](https://docs.temporal.io/nexus) in the works.
 
 ![The Drop Day dashboard after a drop](docs/dashboard.png)
 
