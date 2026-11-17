@@ -29,10 +29,27 @@ HEADLINER = "Ziggy & The Durable Executions"
 TOUR = "The Eternal Retry Tour"
 PRICE_CENTS = 8950 + 3499  # face value + "convenience fee"
 
-FIRST = ["Ada", "Grace", "Linus", "Margaret", "Alan", "Katherine", "Dennis", "Barbara", "Ken",
-         "Radia", "Guido", "Frances", "Tim", "Hedy", "Edsger", "Annie", "Donald", "Joan"]
-LAST = ["Lovelace", "Hopper", "Torvalds", "Hamilton", "Turing", "Johnson", "Ritchie", "Liskov",
-        "Thompson", "Perlman", "van Rossum", "Allen", "Berners-Lee", "Lamarr", "Dijkstra", "Easley"]
+# Fans are named after people who made history in computing and math.
+PIONEERS = [
+    # Computing
+    "Ada Lovelace", "Grace Hopper", "Jean Bartik", "Kathleen Booth", "Mary Kenneth Keller",
+    "Frances Allen", "Margaret Hamilton", "Barbara Liskov", "Radia Perlman", "Adele Goldberg",
+    "Lynn Conway", "Anita Borg", "Karen Spärck Jones", "Hedy Lamarr", "Jeannette Wing",
+    "Maria Klawe", "Shafi Goldwasser", "Latanya Sweeney", "Marian Croak", "Kimberly Bryant",
+    "Valerie Thomas", "Raye Montague", "Mary Golda Ross", "Alan Turing", "Clarence Ellis",
+    "Mark Dean", "Jerry Lawson", "Raj Reddy", "Andrew Yao", "Edsger Dijkstra", "Donald Knuth",
+    "Dennis Ritchie", "Tim Berners-Lee", "Vint Cerf", "Luis von Ahn", "Yukihiro Matsumoto",
+    # NASA's human computers
+    "Katherine Johnson", "Dorothy Vaughan", "Mary Jackson", "Annie Easley", "Gladys West",
+    # AI and robotics
+    "Fei-Fei Li", "Timnit Gebru", "Joy Buolamwini", "Rediet Abebe", "Daphne Koller",
+    "Ayanna Howard", "Cynthia Breazeal", "Ruzena Bajcsy", "Manuela Veloso",
+    # Math
+    "Hypatia", "Emmy Noether", "Sophie Germain", "Sofya Kovalevskaya", "Maryam Mirzakhani",
+    "Karen Uhlenbeck", "Ingrid Daubechies", "Evelyn Boyd Granville", "Fern Hunt",
+    "Shakuntala Devi", "Srinivasa Ramanujan", "Al-Khwarizmi", "Benjamin Banneker",
+    "David Blackwell", "J. Ernest Wilkins Jr.", "Terence Tao", "Manjul Bhargava", "Claude Shannon",
+]
 BOTS = ["TicketBot9000", "ScalpMaster3000", "BuyAllTheSeats.exe", "ResellRanger", "NotABot_bot",
         "ScalperKing", "QueueJumper.exe", "TotallyHumanBot"]
 
@@ -40,7 +57,9 @@ FINAL = {"TICKETED", "SOLD_OUT", "BOT_BLOCKED", "REFUNDED", "PAYMENT_FAILED", "E
 
 
 def make_fans(drop_id: str, n_fans: int, n_bots: int) -> list[Fan]:
-    names = [f"{random.choice(FIRST)} {random.choice(LAST)}" for _ in range(n_fans - n_bots)]
+    # Go through the whole list before anyone repeats.
+    pool = random.sample(PIONEERS, len(PIONEERS))
+    names = [pool[i % len(pool)] for i in range(n_fans - n_bots)]
     names += [f"{random.choice(BOTS)}-{random.randint(1, 99)}" for _ in range(n_bots)]
     random.shuffle(names)
     return [Fan(drop_id, f"fan-{i:04d}", name, PRICE_CENTS) for i, name in enumerate(names, 1)]
