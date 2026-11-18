@@ -21,13 +21,13 @@ class ReservedSeat:
 
 
 @activity.defn
-async def open_drop(req: OpenDropRequest) -> DropOpened:
+def open_drop(req: OpenDropRequest) -> DropOpened:
     seats = seat_db.open_drop(req.drop_id, req.capacity, req.hold_seconds)
     return DropOpened(drop_id=req.drop_id, seats=seats)
 
 
 @activity.defn
-async def reserve_seat(req: SeatRequest) -> ReservedSeat:
+def reserve_seat(req: SeatRequest) -> ReservedSeat:
     try:
         seat, hold_seconds = seat_db.reserve(req.drop_id, req.fan_id)
     except seat_db.SoldOut:
@@ -39,10 +39,10 @@ async def reserve_seat(req: SeatRequest) -> ReservedSeat:
 
 
 @activity.defn
-async def mark_sold(req: SeatRequest) -> None:
+def mark_sold(req: SeatRequest) -> None:
     seat_db.mark_sold(req.drop_id, req.fan_id)
 
 
 @activity.defn
-async def free_seat(req: SeatRequest) -> None:
+def free_seat(req: SeatRequest) -> None:
     seat_db.free(req.drop_id, req.fan_id)

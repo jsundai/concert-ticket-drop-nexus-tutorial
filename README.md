@@ -48,7 +48,7 @@ The app has four teams, each with its own Namespace, and the box office calls th
 ```
                         ┌─ bouncer-endpoint ──▶  bouncer   screen_fan ─────────────▶ Activity
  boxoffice              │
- TicketPurchaseWorkflow ├─ seats-endpoint ────▶  seats     hold_seat ──────────────▶ SeatHoldWorkflow (Update-with-Start)
+ TicketPurchaseWorkflow ├─ seats-endpoint ────▶  seats     hold_seat ──────────────▶ SeatHoldWorkflow (start, then Update)
  (one per fan)          │                                  confirm_seat ───────────▶ Update on the hold
                         │                                  release_seat ───────────▶ Signal to the hold
                         │                                  open_drop ──────────────▶ Activity

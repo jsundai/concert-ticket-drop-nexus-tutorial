@@ -8,6 +8,8 @@ even when the gateway charges the card and then drops the response.
 """
 
 import asyncio
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import nexusrpc
@@ -32,26 +34,26 @@ TASK_QUEUE = "payments-tq"
 
 
 @activity.defn
-async def charge(req: ChargeRequest) -> ChargeReceipt:
+def charge(req: ChargeRequest) -> ChargeReceipt:
     info = activity.info()
     # "Waiting on the bank": heartbeat so Temporal notices fast if this Worker dies.
     for step in range(4):
         activity.heartbeat(f"waiting on the bank ({step + 1}/4)")
-        await asyncio.sleep(0.5)
+        time.sleep(0.5)
     # A gateway error raises here, and the Retry Policy tries again with the same Activity ID.
     charge_id = card_gateway.charge(info.activity_id, req.drop_id, req.fan_id, req.amount_cents)
     return ChargeReceipt(charge_id=charge_id, attempts=info.attempt)
 
 
 @activity.defn
-async def refund(req: RefundRequest) -> RefundReceipt:
+def refund(req: RefundRequest) -> RefundReceipt:
     key = activity.info().activity_id
     refund_id = card_gateway.refund(key, req.drop_id, req.fan_id, req.charge_id, req.reason)
     return RefundReceipt(refund_id=refund_id)
 
 
 @activity.defn
-async def issue_credit(req: CreditRequest) -> CreditReceipt:
+def issue_credit(req: CreditRequest) -> CreditReceipt:
     key = activity.info().activity_id
     credit_id = card_gateway.credit(key, req.drop_id, req.fan_id, req.amount_cents, req.reason)
     return CreditReceipt(credit_id=credit_id, amount_cents=req.amount_cents)
@@ -73,6 +75,9 @@ class PaymentsServiceHandler:
             id=f"charge-{input.drop_id}-{input.fan_id}-{ctx.request_id}",
             start_to_close_timeout=timedelta(seconds=30),
             heartbeat_timeout=timedelta(seconds=3),
+            # Give up before the box office's 5-minute Operation timeout, so a charge
+            # can't succeed after the fan has already been marked PAYMENT_FAILED.
+            schedule_to_close_timeout=timedelta(minutes=4),
             retry_policy=RetryPolicy(initial_interval=timedelta(seconds=1), backoff_coefficient=1.5),
             summary=f"Charge {input.fan_id} ${input.amount_cents / 100:.2f}",
         )
@@ -89,6 +94,7 @@ class PaymentsServiceHandler:
             input,
             id=f"refund-{input.drop_id}-{input.fan_id}-{ctx.request_id}",
             start_to_close_timeout=timedelta(seconds=30),
+            schedule_to_close_timeout=timedelta(minutes=4),
             summary=f"Refund {input.fan_id}",
         )
 
@@ -104,6 +110,8 @@ class PaymentsServiceHandler:
             input,
             id=f"credit-{input.drop_id}-{input.fan_id}-{ctx.request_id}",
             start_to_close_timeout=timedelta(seconds=30),
+            # Give up before the support desk's 1-minute Operation timeout.
+            schedule_to_close_timeout=timedelta(seconds=50),
             summary=f"Credit {input.fan_id} ${input.amount_cents / 100:.2f}: {input.reason}",
         )
 
@@ -115,6 +123,9 @@ async def main() -> None:
         task_queue=TASK_QUEUE,
         activities=[charge, refund, issue_credit],
         nexus_service_handlers=[PaymentsServiceHandler()],
+        # The Activities are plain `def` functions, so they run on these threads.
+        activity_executor=ThreadPoolExecutor(max_workers=100),
+        max_concurrent_activities=100,
     )
     print(f"Payments Worker on {NAMESPACE}/{TASK_QUEUE}", flush=True)
     await worker.run()

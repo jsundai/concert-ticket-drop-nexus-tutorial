@@ -128,8 +128,12 @@ class TicketPurchaseWorkflow:
             done = await seats.execute_operation(
                 SeatsService.confirm_seat, seat_request, schedule_to_close_timeout=OP_TIMEOUT
             )
-        except Exception:
-            # Any confirm failure means the hold is gone: it expired, or its Workflow already closed.
+        except Exception as err:
+            # Refund only when the hold is gone. Any other failure, such as a timeout,
+            # doesn't say whether the seat was sold, so don't refund on a guess.
+            kind, _ = failure_type(err)
+            if kind != "HoldExpired":
+                raise
             msg = "Seat hold expired"
             await payments.execute_operation(
                 PaymentsService.refund,
