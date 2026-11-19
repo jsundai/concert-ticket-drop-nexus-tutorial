@@ -25,6 +25,7 @@
     --mono: "Geist Mono", ui-monospace, Menlo, monospace;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--text); overflow-x: hidden;
     font: 400 14px/1.45 Geist, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
   button, input { font: inherit; color: inherit; }
@@ -130,6 +131,39 @@
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translate(-50%, 70px); padding: 10px 14px;
     background: var(--raise); border: 1px solid var(--rule); border-radius: 4px; font-size: 13px; transition: transform .25s; }
   .toast.show { transform: translate(-50%, 0); }
+
+  /* Easter egg: when every seat sells, the stage label says so for a few seconds */
+  .stagebar { transition: color .4s, border-color .4s; }
+  .stagebar.soldout { color: var(--sold); border-color: var(--sold); }
+
+  /* Easter egg: tardigrade mode at the top of the failure-rate slider */
+  .chaos.tardigrade label span:first-child { color: var(--sold); }
+  .chaos .tip { margin: 6px 0 0; color: var(--faint); font-size: 12.5px; }
+
+  /* Easter egg: the secret setlist (press S, or open /setlist) */
+  .setlist { position: fixed; inset: 0; z-index: 10; display: none; place-items: center; background: rgba(8,8,10,.86); }
+  .setlist.open { display: grid; }
+  .setlist .view { display: none; width: min(460px, calc(100vw - 32px)); }
+  .setlist .view.on { display: block; }
+  .setlist .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); color: var(--faint);
+    font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .paper { padding: 28px 28px 24px; background: #f4f1ea; color: #151515; transform: rotate(-2deg);
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); position: relative; }
+  .paper::before, .paper::after { content: ""; position: absolute; top: -10px; width: 64px; height: 22px; background: rgba(230,225,200,.55); }
+  .paper::before { left: -14px; transform: rotate(-30deg); }
+  .paper::after { right: -14px; transform: rotate(30deg); }
+  .paper h3 { margin: 0 0 2px; font-size: 11px; letter-spacing: .14em; font-weight: 400; font-family: var(--mono); color: #6b6b6b; }
+  .paper ol { margin: 10px 0 0; padding: 0; list-style: none; counter-reset: s; }
+  .paper li { counter-increment: s; font-weight: 700; text-transform: uppercase; font-size: 21px; line-height: 1.32; }
+  .paper li::before { content: counter(s) "  "; font-family: var(--mono); font-weight: 400; font-size: 12px; color: #9a9a9a; }
+  .paper .enc { margin-top: 10px; padding-top: 8px; border-top: 2px solid #151515; font-weight: 700; font-size: 21px; text-transform: uppercase; }
+  .paper .enc span { font-family: var(--mono); font-weight: 400; font-size: 11px; color: #6b6b6b; letter-spacing: .12em; display: block; }
+  .paper .scrawl { position: absolute; right: 22px; bottom: 58px; font-family: var(--mono); font-size: 11px; color: #c0392b; transform: rotate(-6deg); }
+  .cli { padding: 18px 20px; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--muted); white-space: pre; overflow: hidden; }
+  .cli .p, .cli .w { color: var(--text); }
+  .cli .ok { color: var(--sold); }
+  .cli .h { color: var(--faint); }
 
   @media (max-width: 1100px) {
     .lower { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -251,7 +285,7 @@
         <span><span class="seat sold"></span>Sold</span>
       </div>
     </div>
-    <div class="stagebar">Stage</div>
+    <div class="stagebar" id="stage">Stage</div>
     <div id="map"><div class="empty">No seats on sale yet.<p>Press Drop tickets, then stop a Worker while fans are paying.</p></div></div>
   </section>
 </main>
@@ -267,9 +301,10 @@
       <tr><td>Gateway 503s, retried</td><td class="r" id="l-503">0</td></tr>
       <tr><td>Charged but response lost, retried</td><td class="r" id="l-lost">0</td></tr>
     </table>
-    <div class="chaos">
-      <label for="chaos"><span>Card gateway failure rate</span><span class="num" id="chaosVal">30%</span></label>
+    <div class="chaos" id="chaosBox">
+      <label for="chaos"><span id="chaosLabel">Card gateway failure rate</span><span class="num" id="chaosVal">30%</span></label>
       <input type="range" id="chaos" min="0" max="0.8" step="0.05" value="0.3">
+      <p class="tip" id="chaosTip" hidden>Ziggy is a tardigrade. Tardigrades survive almost anything, and so do these Workflows.</p>
     </div>
   </section>
 
@@ -285,6 +320,38 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Easter egg: the secret setlist. Press S to open it and flip between views, Esc to close. -->
+<div class="setlist" id="setlist">
+  <div class="view" data-view="paper"><div class="paper">
+    <h3>ZIGGY &amp; THE DURABLE EXECUTIONS · ETERNAL RETRY TOUR</h3>
+    <ol>
+      <li>Don't Stop Retrying</li><li>Heartbeat</li><li>Replay It Again</li><li>Signal Fire</li>
+      <li>Deterministic Love</li><li>Sleep for a Thousand Years</li><li>Same Key, Same Charge</li><li>Continue-As-New</li>
+    </ol>
+    <div class="enc"><span>ENCORE</span>At Least Once</div>
+    <div class="scrawl">slow down on 6!!</div>
+  </div></div>
+  <div class="view" data-view="cli"><div class="cli"><span class="p">$ temporal setlist show --band ziggy</span>
+
+<span class="h">  Band      </span><span class="w">Ziggy &amp; The Durable Executions</span>
+<span class="h">  Tour      </span><span class="w">The Eternal Retry Tour</span>
+<span class="h">  Status    </span><span class="ok">Running</span>
+
+<span class="h">  #  SONG                         RETRIES</span>
+  1  Don't Stop Retrying          ∞
+  2  Heartbeat                    0
+  3  Replay It Again              0
+  4  Signal Fire                  0
+  5  Deterministic Love           0
+  6  Sleep for a Thousand Years   0
+  7  Same Key, Same Charge        1
+  8  Continue-As-New              0
+
+<span class="h">  ENCORE</span>
+  9  At Least Once                ≥1</div></div>
+  <div class="hint">S or → next view · Esc close</div>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -335,7 +402,50 @@ function renderMap(drop) {
     $("sc-" + i).textContent = `${s} of ${sec.seats.length} sold`;
   });
   $("venueCount").textContent = `${sold} sold, ${held} held, ${total - sold - held} open`;
+  // Easter egg: the moment the last seat sells, the stage label says so for a few seconds.
+  if (total > 0 && sold === total && soldOutDrop !== drop.drop_id) {
+    if (soldOutDrop !== null || !drop.done) flashSoldOut();  // skip drops that were already over at page load
+    soldOutDrop = drop.drop_id;
+  }
 }
+
+let soldOutDrop = null;
+function flashSoldOut() {
+  const stage = $("stage");
+  stage.textContent = "Sold out · see you on The Eternal Retry Tour";
+  stage.classList.add("soldout");
+  clearTimeout(stage._h);
+  stage._h = setTimeout(() => { stage.textContent = "Stage"; stage.classList.remove("soldout"); }, 6000);
+}
+
+// Easter egg: tardigrade mode at the top of the failure-rate slider.
+function renderChaos(v) {
+  const top = Number(v) >= Number($("chaos").max);
+  $("chaosVal").textContent = Math.round(v * 100) + "%";
+  $("chaosLabel").textContent = top ? "Tardigrade mode" : "Card gateway failure rate";
+  $("chaosTip").hidden = !top;
+  $("chaosBox").classList.toggle("tardigrade", top);
+}
+
+// Easter egg: the secret setlist.
+const VIEWS = ["paper", "cli"];
+let setlistView = -1;
+function setlist(i) {
+  setlistView = i;
+  $("setlist").classList.toggle("open", i >= 0);
+  document.querySelectorAll("#setlist .view").forEach((el) => el.classList.toggle("on", el.dataset.view === VIEWS[i]));
+}
+document.addEventListener("keydown", (ev) => {
+  if (ev.target.closest("input, textarea") || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const k = ev.key.toLowerCase();
+  if (k === "s" || (setlistView >= 0 && k === "arrowright")) setlist((setlistView + 1) % VIEWS.length);
+  else if (setlistView >= 0 && k === "arrowleft") setlist((setlistView + VIEWS.length - 1) % VIEWS.length);
+  else if (k === "escape") setlist(-1);
+});
+$("setlist").addEventListener("click", (ev) => { if (ev.target === $("setlist")) setlist(-1); });
+const startView = { "/setlist": 0, "/setlist/cli": 1 }[location.pathname];
+if (startView !== undefined) setlist(startView);
+if (new URLSearchParams(location.search).has("soldout")) flashSoldOut();  // preview it with /?soldout
 
 function render(s) {
   state = s;
@@ -372,7 +482,7 @@ function render(s) {
   $("l-credits").textContent = led.credits || 0;
   $("l-503").textContent = led.hiccups_503 || 0;
   $("l-lost").textContent = led.hiccups_lost || 0;
-  if (!chaosDragging) { $("chaos").value = s.chaos; $("chaosVal").textContent = Math.round(s.chaos * 100) + "%"; }
+  if (!chaosDragging) { $("chaos").value = s.chaos; renderChaos(s.chaos); }
 
   $("standalone").innerHTML = s.standalone.length ? s.standalone.map((o) =>
     `<tr><td class="mono">${esc(o.operation)}</td><td><span class="ellip faint mono">${esc(o.id)}</span></td>
@@ -438,7 +548,7 @@ document.addEventListener("click", async (ev) => {
   }
 });
 
-$("chaos").addEventListener("input", (e) => { chaosDragging = true; $("chaosVal").textContent = Math.round(e.target.value * 100) + "%"; });
+$("chaos").addEventListener("input", (e) => { chaosDragging = true; renderChaos(e.target.value); });
 $("chaos").addEventListener("change", async (e) => { await post("/api/chaos", { flakiness: e.target.value }); chaosDragging = false; });
 
 poll();
