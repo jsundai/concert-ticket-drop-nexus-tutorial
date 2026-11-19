@@ -5,6 +5,8 @@
 
 import asyncio
 import random
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import nexusrpc
@@ -23,8 +25,8 @@ BOT_TELLS = ("bot", "scalp", ".exe", "resell")
 
 
 @activity.defn
-async def screen_fan(req: ScreenRequest) -> ScreenResult:
-    await asyncio.sleep(random.uniform(0.2, 0.8))  # "Analyzing mouse movements..."
+def screen_fan(req: ScreenRequest) -> ScreenResult:
+    time.sleep(random.uniform(0.2, 0.8))  # "Analyzing mouse movements..."
     if any(tell in req.name.lower() for tell in BOT_TELLS):
         # Retrying will not turn a bot into a fan.
         raise ApplicationError(f"{req.name} is a bot", type="BotDetected", non_retryable=True)
@@ -45,6 +47,8 @@ class BouncerServiceHandler:
             input,
             id=f"screen-{input.drop_id}-{input.fan_id}-{ctx.request_id}",
             start_to_close_timeout=timedelta(seconds=10),
+            # Give up before the box office's 5-minute Operation timeout.
+            schedule_to_close_timeout=timedelta(minutes=4),
             retry_policy=RetryPolicy(initial_interval=timedelta(seconds=1)),
             summary=f"Screen {input.name}",
         )
@@ -57,6 +61,9 @@ async def main() -> None:
         task_queue=TASK_QUEUE,
         activities=[screen_fan],
         nexus_service_handlers=[BouncerServiceHandler()],
+        # The Activities are plain `def` functions, so they run on these threads.
+        activity_executor=ThreadPoolExecutor(max_workers=100),
+        max_concurrent_activities=100,
     )
     print(f"Bouncer Worker on {NAMESPACE}/{TASK_QUEUE}", flush=True)
     await worker.run()

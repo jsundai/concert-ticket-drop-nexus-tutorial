@@ -24,7 +24,7 @@ ACTIVITY_TIMEOUT = timedelta(seconds=10)
 class HoldOutcome:
     fan_id: str
     seat: str
-    status: str  # SOLD, EXPIRED, RELEASED, SOLD_OUT
+    status: str  # SOLD, EXPIRED, RELEASED, SOLD_OUT, FAILED
 
 
 def _failure_type(err: BaseException) -> str:
@@ -42,15 +42,16 @@ class SeatHoldWorkflow:
         self._req: SeatRequest | None = None
         self._seat = ""
         self._hold_seconds = 0
-        # new → held → confirming → confirmed, or held → released / expired, or new → sold_out
+        # new → held → confirming → confirmed, or held → released / expired, or new → sold_out / failed
         self._state = "new"
 
     @workflow.run
     async def run(self, req: SeatRequest) -> HoldOutcome:
         self._req = req
         await workflow.wait_condition(lambda: self._state != "new")
-        if self._state == "sold_out":
-            return HoldOutcome(req.fan_id, "", "SOLD_OUT")
+        if self._state in ("sold_out", "failed"):
+            await workflow.wait_condition(workflow.all_handlers_finished)
+            return HoldOutcome(req.fan_id, "", self._state.upper())
 
         try:
             await workflow.wait_condition(
@@ -82,6 +83,8 @@ class SeatHoldWorkflow:
             if _failure_type(err) == "SoldOut":
                 self._state = "sold_out"
                 raise ApplicationError("Sold out", type="SoldOut", non_retryable=True)
+            # Any other failure (for example, the drop isn't open) ends the hold too.
+            self._state = "failed"
             raise
         self._seat, self._hold_seconds = reserved.seat, reserved.hold_seconds
         self._state = "held"
