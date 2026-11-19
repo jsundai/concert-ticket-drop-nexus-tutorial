@@ -27,7 +27,7 @@ from drop_day.systems.store import write_chaos
 
 HEADLINER = "Ziggy & The Durable Executions"
 TOUR = "The Eternal Retry Tour"
-PRICE_CENTS = 8950 + 3499  # face value + "convenience fee"
+PRICE_CENTS = 8950 + 250  # face value + a small, fair service fee
 
 # Fans are named after people who made history in computing and math.
 PIONEERS = [
@@ -64,9 +64,13 @@ BOTS = ["TicketBot9000", "ScalpMaster3000", "BuyAllTheSeats.exe", "ResellRanger"
 FINAL = {"TICKETED", "SOLD_OUT", "BOT_BLOCKED", "REFUNDED", "PAYMENT_FAILED", "ERROR"}
 
 
+FIRST_FAN = "Ada Lovelace"  # easter egg: the first programmer always gets the first ticket
+
+
 def make_fans(drop_id: str, n_fans: int, n_bots: int) -> list[Fan]:
-    # Go through the whole list before anyone repeats.
-    pool = random.sample(PIONEERS, len(PIONEERS))
+    # Go through the whole list before anyone repeats. Ada is always in line.
+    others = [p for p in PIONEERS if p != FIRST_FAN]
+    pool = [FIRST_FAN] + random.sample(others, len(others))
     names = [pool[i % len(pool)] for i in range(n_fans - n_bots)]
     names += [f"{random.choice(BOTS)}-{random.randint(1, 99)}" for _ in range(n_bots)]
     random.shuffle(names)
@@ -139,20 +143,44 @@ class DropRun:
         fans = make_fans(self.drop_id, self.n_fans, self.n_bots)
         self.fans = {f.fan_id: FanView(f.fan_id, f.name) for f in fans}
         self.started = time.monotonic()
+        self._handles = []
+        # Easter egg: Ada Lovelace checks out first, and the rest of the line waits until she has her ticket.
+        first = [f for f in fans if f.name == FIRST_FAN]
+        rest = [f for f in fans if f.name != FIRST_FAN]
+        if first:
+            pair = await self._start_one(first[0])
+            self._handles.append(pair)
+            asyncio.create_task(self._poll_stages())
+            asyncio.create_task(self._release_after(pair, rest))
+        else:
+            await self._release(rest)
+            asyncio.create_task(self._poll_stages())
+
+    async def _start_one(self, fan: Fan) -> tuple[Fan, WorkflowHandle]:
+        h = await self.client.start_workflow(
+            TicketPurchaseWorkflow.run, fan, id=f"{self.drop_id}-{fan.fan_id}", task_queue=TASK_QUEUE
+        )
+        return fan, h
+
+    async def _release(self, fans: list[Fan]) -> None:
         sem = asyncio.Semaphore(50)
 
-        async def start_one(fan: Fan) -> tuple[Fan, WorkflowHandle]:
+        async def start(fan: Fan) -> tuple[Fan, WorkflowHandle]:
             async with sem:
-                h = await self.client.start_workflow(
-                    TicketPurchaseWorkflow.run, fan, id=f"{self.drop_id}-{fan.fan_id}", task_queue=TASK_QUEUE
-                )
-                return fan, h
+                return await self._start_one(fan)
 
-        pairs = await asyncio.gather(*(start_one(f) for f in fans))
-        self._handles = pairs
+        pairs = await asyncio.gather(*(start(f) for f in fans))
+        self._handles.extend(pairs)
         for fan, h in pairs:
             asyncio.create_task(self._await_result(fan, h))
-        asyncio.create_task(self._poll_stages())
+
+    async def _release_after(self, first: tuple[Fan, WorkflowHandle], rest: list[Fan]) -> None:
+        # Wait for the first fan's ticket (up to a minute, so a stopped Worker can't hold up the whole drop).
+        try:
+            await asyncio.wait_for(asyncio.shield(self._await_result(*first)), timeout=60)
+        except asyncio.TimeoutError:
+            pass
+        await self._release(rest)
 
     async def _await_result(self, fan: Fan, h: WorkflowHandle) -> None:
         try:

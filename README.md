@@ -7,7 +7,7 @@ payment system mid-checkout. This is a Temporal demo using [Nexus](https://docs.
 
 ## Run it
 
-You'll need the [Temporal CLI](https://docs.temporal.io/cli/setup-cli) (1.9.1 or later) and
+You'll need the [Temporal CLI](https://docs.temporal.io/cli/setup-cli) (1.10.0 or later) and
 [uv](https://docs.astral.sh/uv/).
 
 ```bash
@@ -111,3 +111,17 @@ uv run python -m drop_day.temporal.payments
 uv run python -m drop_day.temporal.boxoffice
 uv run python -m drop_day.demo.drop
 ```
+
+## Easter eggs
+
+Every fan in line is a pioneer in computing, math, or AI, and they're all going to see Ziggy & The Durable Executions
+on The Eternal Retry Tour.
+
+A few more things to find:
+
+- Ada Lovelace, often called the first programmer, always grabs the first ticket.
+- Press `S` on the dashboard, or open http://localhost:8080/setlist, to see the band's setlist. Press `S` again for
+  the roadie's copy at http://localhost:8080/setlist/cli.
+- Slide the card failure rate all the way up.
+- Watch the stage when the last seat sells, or preview it at http://localhost:8080/?soldout.
+- Visit a page that doesn't exist, like http://localhost:8080/backstage.

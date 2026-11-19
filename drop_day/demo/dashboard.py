@@ -148,6 +148,17 @@ class App:
         return web.json_response({"credit_id": credit_id, "name": fan.name})
 
 
+@web.middleware
+async def not_found(req: web.Request, handler):
+    """Easter egg: unknown pages get a wrong-gate page instead of a plain 404."""
+    try:
+        return await handler(req)
+    except web.HTTPNotFound:
+        if req.path.startswith("/api/"):
+            raise
+        return web.FileResponse(STATIC / "404.html", status=404)
+
+
 async def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, default=8080)
@@ -160,9 +171,11 @@ async def main() -> None:
 
     client = await Client.connect("localhost:7233", namespace=NAMESPACE)
     app = App(client, workers)
-    web_app = web.Application()
+    web_app = web.Application(middlewares=[not_found])
     web_app.add_routes([
         web.get("/", app.index),
+        web.get("/setlist", app.index),  # easter egg: opens the dashboard with the secret setlist showing
+        web.get("/setlist/cli", app.index),
         web.get("/api/state", app.state),
         web.post("/api/drop", app.drop),
         web.post("/api/chaos", app.chaos),

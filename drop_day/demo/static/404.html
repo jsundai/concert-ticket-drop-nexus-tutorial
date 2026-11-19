@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drop Day · Not found</title>
+<style>
+  /* Geist and Geist Mono, SIL Open Font License 1.1 (see fonts/Geist-OFL.txt). */
+  @font-face { font-family: Geist; src: url(/static/fonts/Geist-Regular.woff2) format("woff2"); font-weight: 400; }
+  @font-face { font-family: Geist; src: url(/static/fonts/Geist-Bold.woff2) format("woff2"); font-weight: 700; }
+  @font-face { font-family: "Geist Mono"; src: url(/static/fonts/GeistMono-Regular.woff2) format("woff2"); font-weight: 400; }
+  :root { --bg: #141414; --raise: #1b1b1d; --rule: #2a2a2e; --text: #f8fafc; --muted: #9aa3b2; --faint: #5d6575;
+    --stop: #f87171; --mono: "Geist Mono", ui-monospace, Menlo, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font: 400 15px/1.5 Geist, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; }
+  .nf { width: min(440px, 100%); }
+  h1 { margin: 6px 0; font-size: 26px; }
+  p { margin: 0 0 18px; color: var(--muted); }
+  a { color: var(--text); }
+  /* A ticket for the wrong gate */
+  .stub { display: flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin-bottom: 22px; background: var(--raise); }
+  .stub .main { padding: 14px 16px; flex: 1; }
+  .stub .k { font-family: var(--mono); font-size: 11px; color: var(--faint); letter-spacing: .1em; }
+  .stub .v { font-size: 15px; margin-bottom: 6px; }
+  .stub .tear { width: 86px; border-left: 2px dashed var(--rule); display: grid; place-items: center; font-family: var(--mono);
+    font-size: 12px; color: var(--stop); writing-mode: vertical-rl; letter-spacing: .14em; }
+</style>
+</head>
+<body>
+<main class="nf">
+  <div class="stub"><div class="main">
+    <div class="k">EVENT</div><div class="v">Ziggy &amp; The Durable Executions</div>
+    <div class="k">GATE</div><div class="v">404</div>
+  </div><div class="tear">NO ENTRY</div></div>
+  <h1>Wrong gate.</h1>
+  <p>The show's at the main entrance.</p>
+  <a href="/">Back to the box office →</a>
+</main>
+</body>
+</html>
